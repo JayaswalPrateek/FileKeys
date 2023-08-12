@@ -1,8 +1,17 @@
+/*
+supported conversions:
+	pdf to office (costs four credits)
+	office to pdf (costs four credits)
+	mp4 to mp3 (costs one credit)
+*/
+
 package main
 
 import (
+	"io"
 	"math/rand"
 	"mime/multipart"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -15,9 +24,18 @@ import (
 
 type User struct {
 	gorm.Model
-	userID_emailID_mapping        map[int]string
-	filename_ext_checksum_mapping map[string]map[string]string
-	cheksum_file_mapping          map[string]*multipart.FileHeader
+	UserID  int
+	EmailID string
+	Files   []File
+}
+
+type File struct {
+	gorm.Model
+	UserID    int
+	Filename  string
+	Extension string
+	Data      []byte
+	Checksum  string
 }
 
 func loadHTML() { // windows support pending
@@ -46,8 +64,8 @@ func signUp(emailID string, db *gorm.DB) int {
 	}
 
 	newUser := User{
-		userID_emailID_mapping:        map[int]string{randomNumber: emailID},
-		filename_ext_checksum_mapping: make(map[string]map[string]string),
+		UserID:  randomNumber,
+		EmailID: emailID,
 	}
 
 	if err := db.Create(&newUser).Error; err != nil {
@@ -56,18 +74,47 @@ func signUp(emailID string, db *gorm.DB) int {
 	return randomNumber
 }
 
+func constructFileLocally(file *multipart.FileHeader) {
+	// Open the uploaded file
+	uploadedFile, err := file.Open()
+	if err != nil {
+		log.Error(err)
+	}
+	defer uploadedFile.Close()
+
+	// Create the destination file
+	destinationPath := file.Filename
+	destinationFile, err := os.Create(destinationPath)
+	if err != nil {
+		log.Error(err)
+	}
+	defer destinationFile.Close()
+
+	// Copy the contents from the uploaded file to the destination file
+	_, err = io.Copy(destinationFile, uploadedFile)
+	if err != nil {
+		log.Error(err)
+	}
+
+}
 func pipeline(file *multipart.FileHeader, targetFormat string, userID int) {
 	/*
 		this function takes a file, a target format and the userID
-		first it checks in the db at the Userid if the converted file already exits in it
+		first it checks in the db at the Userid if the converted file already exits in it, verifies integrity
 		else it uses cloud convert's api to convert it and store it but before converting it scans it using virustotal api
 		after the conversion it is stored in the db, and mailed to the user as an attachment
 		APIs to use
-		1. cloud convert API https://cloudconvert.com/api/v2#overview
-		2. VirusTotal file scanning API https://developers.virustotal.com/v2.0/reference/getting-started
-		3. Email converted file using API(if 1,2,3 goes well) https://github.com/public-apis/public-apis#email
+		1. cloud convert API https://cloudconvert.com/api/v2#overview or https://www.convertapi.com/doc/go-library
+		2. Email converted file using https://www.mailjet.com/products/email-api/ or
+									  https://sendgrid.com/solutions/email-api/   or
+									  https://www.mailersend.com/features/email-api
 		file handling https://github.com/spf13/afero
 	*/
+	/*
+		check if targetFormat exists in db for the filename
+
+	*/
+	constructFileLocally(file)
 }
 
 func buildRouters(router *gin.Engine, db *gorm.DB) {
@@ -124,6 +171,7 @@ func main() {
 
 	log.Info("database connected, preparing server...")
 	router := gin.Default()
+	router.MaxMultipartMemory = 8 << 20
 	loadHTML()
 	buildRouters(router, db)
 }
