@@ -1,6 +1,69 @@
 <!DOCTYPE html>
 <html>
-    <body>
-        <h1>this is a test</h1>
-    </body>
+
+<head>
+    <title>File Keys</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Dosis:wght@800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <h1 style="text-align: center; line-height: 50px 50px;">
+        <span style="font-size: 150px;">📜 </span>
+        <span style="font-size: 100px; font-family: Dosis; text-shadow: 4px 4px 5px #facc15;"> FileKeys: A File Converter </span>
+        <span style="font-size: 150px;">📜 </span>
+    </h1>
+
+    <form action="" method="post" style="padding: 12px 20px; margin: 8px 0; box-sizing: border-box;" id="f">
+        <table align="center" cellpadding="10" style="font-family: Dosis; font-size:larger;">
+            <tr>
+                <td>Enter Email</td>
+                <td>
+                    <input type="email" name="mailID" required placeholder="abc@xyz.com" style="text-align: center;" class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full">
+                </td>
+            </tr>
+            <tr>
+                <td>Select File</td>
+                <td>
+                    <input type="file" required style="font-family: Dosis;" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-yellow-400 hover:file:bg-yellow-500" />
+                </td>
+            </tr>
+            <tr>
+                <td><input class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full" type="submit" value="Covert" style="font-family: Dosis"></td>
+                <td><input class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-full" type="reset" value="Clear" style="font-family: Dosis;"></td>
+            </tr>
+            <tfoot>
+                <tr>
+                    <td colspan="2" style="color: red;" id="formMessage"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </form>
+
+    <script>
+        document.getElementById("f").onsubmit = function (event) {
+            // Prevent the default form submission
+            event.preventDefault();
+            sub();
+        };
+        function sub() {
+            var status = document.getElementById("formMessage");
+            var id = document.querySelector('input[name="mailID"]');
+            status.textContent = id.value;
+
+            const fileInput = document.querySelector('input[type="file"]');
+            const file = fileInput.files[0];
+            if (file) {
+                const fileName = file.name;
+                if (fileName.endsWith('.pdf')) {
+                    status.textContent = "Sending Office File to " + id.value;
+                } else {
+                    status.textContent = "Sending PDF File to " + id.value;
+                }
+            }
+        }
+    </script>
+</body>
+
 </html>
