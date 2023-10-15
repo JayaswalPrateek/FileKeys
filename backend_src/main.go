@@ -1,12 +1,8 @@
-/*
-supported conversions:
-pdf to office (costs four credits)
-office to pdf (costs four credits)
-mp4 to mp3 	  (costs one  credit)
-*/
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"mime/multipart"
 	"os"
@@ -15,30 +11,31 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/gin-gonic/gin"
+	"github.com/h2non/filetype"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 type File struct {
 	gorm.Model
-	Filename  string
-	Extension string
-	Checksum  string
-	Data      []byte
+	pdfBlob []byte
+	pdfHash string
+	ofcBlob []byte
+	ofcHash string
 }
 
-func loadDB() (db *gorm.DB) {
+func loadDB() *gorm.DB {
 	log.Info("connecting to database...")
-	db, err := gorm.Open(sqlite.Open("Files.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("main.db"), &gorm.Config{})
 	if err != nil {
-		log.Fatal("failed to connect database")
+		log.Fatal("database connection failed")
 	}
 	err = db.AutoMigrate(&File{})
 	if err != nil {
-		log.Fatal("database migration failed")
+		log.Fatal("db schema migration failed")
 	}
 	log.Info("database connected, preparing server...")
-	return
+	return db
 }
 
 func loadHTML() { // todo: windows support pending
@@ -57,69 +54,69 @@ func loadHTML() { // todo: windows support pending
 	log.Info("main.html has been opened")
 }
 
-func loadRouter(db *gorm.DB) {
+func loadRouter(db *gorm.DB) (*multipart.FileHeader, string, *gorm.DB) {
 	router := gin.Default()
 	router.MaxMultipartMemory = 8 << 20
+	var emailID string
+	var file *multipart.FileHeader
 	router.POST("/upload", func(c *gin.Context) {
-		file, err := c.FormFile("file")
-		if err != nil {
-			c.JSON(400, gin.H{
-				"error": "File not received",
-			})
-			return
-		}
-		toFormat := c.PostForm("to_format")
-		emailID := c.PostForm("email_id")
-		pipeline(file, toFormat, emailID, db)
-		c.JSON(200, gin.H{
-			"message": "File received and processed, check your mailbox",
-		})
+		emailID = c.PostForm("mailID")
+		file, _ = c.FormFile("uploadedFile")
 	})
+	return file, emailID, db
 }
-func pipeline(file *multipart.FileHeader, targetFormat string, emailID string, db *gorm.DB) {
+func pipeline(file *multipart.FileHeader, emailID string, db *gorm.DB) {
+	uploadedFile, _ := file.Open()
+	defer uploadedFile.Close()
+	localFile, _ := os.Create("./tmp." + inferFileFmt(uploadedFile))
+	defer localFile.Close()
+	io.Copy(localFile, uploadedFile)
+
+	hashOfLocalFile := computeSHA256Hash("./tmp." + inferFileFmt(uploadedFile))
+	// check if converted file cached in db if so then mail it
+	targetFmt := inferTargetFmt(uploadedFile)
+	// else use npm cli tool to convert, cache and mail
+
 	/*
 		APIs to use
-		1. cloud convert API https://cloudconvert.com/api/v2#overview or https://www.convertapi.com/doc/go-library
 		2. Email converted file using https://www.mailjet.com/products/email-api/ or
-									  https://sendgrid.com/solutions/email-api/   or
-									  https://www.mailersend.com/features/email-api
+		https://sendgrid.com/solutions/email-api/   or
+		https://www.mailersend.com/features/email-api
 		file handling https://github.com/spf13/afero
 	*/
-	/*
-		check inside db, with userID to get filenames, see if the filename exists
-		if the filename exists see if the extension string exists, if so find its checksum
-		find the associated file and mail it to the user
 
-	*/
-	/*
-		then construct the file inside the current folder
-		and use cloudconvert api cli interface to convert the original file to the target format
-		after conversion, its checksum is calculated and stored in the database and then emailed to the user
-	*/
-	reconstructFileLocally(file)
 }
-func reconstructFileLocally(file *multipart.FileHeader) {
-	uploadedFile, err := file.Open()
-	if err != nil {
-		log.Fatal(err)
+func inferTargetFmt(uploadedFile multipart.File) string {
+	buf, _ := io.ReadAll(uploadedFile)
+	if filetype.IsDocument(buf) {
+		return "docx"
 	}
-	defer uploadedFile.Close()
+	return "pdf"
+}
+func inferFileFmt(uploadedFile multipart.File) string {
+	buf, _ := io.ReadAll(uploadedFile)
+	kind, _ := filetype.Match(buf)
+	return kind.Extension
 
-	destinationPath := file.Filename
-	destinationFile, err := os.Create(destinationPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer destinationFile.Close()
+}
+func computeSHA256Hash(filePath string) (string, error) {
+	file, _ := os.Open(filePath)
+	defer file.Close()
 
-	_, err = io.Copy(destinationFile, uploadedFile)
-	if err != nil {
-		log.Fatal(err)
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
 	}
+
+	// Convert the hash to a hexadecimal string
+	hashSum := hash.Sum(nil)
+	hashString := hex.EncodeToString(hashSum)
+
+	return hashString, nil
 }
 
 func main() {
 	db := loadDB()
 	loadHTML()
-	loadRouter(db)
+	pipeline(loadRouter(db))
 }
