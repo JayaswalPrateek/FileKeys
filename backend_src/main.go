@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,170 +20,192 @@ import (
 	"gorm.io/gorm"
 )
 
-func loadHTML() { // todo: windows support pending
-	log.Info("opening main.html")
+type Cache struct {
+	gorm.Model
+	Pblob []byte
+	Phash string
+	Oblob []byte
+	Ohash string
+}
 
-	os := runtime.GOOS
-	if os == "linux" {
-		cmd := exec.Command("xdg-open", "main.html")
+func connectDB() *gorm.DB {
+	log.Info("connecting to database...")
+
+	db, err := gorm.Open(sqlite.Open("main.db"), &gorm.Config{})
+	if err != nil {
+		log.Fatal("database connection failed")
+	} else {
+		log.Info("database connection successful")
+	}
+
+	err = db.AutoMigrate(&Cache{})
+	if err != nil {
+		log.Fatal("db schema migration failed")
+	} else {
+		log.Info("db schema migration successful")
+	}
+	loadHTML()
+	return db
+}
+
+func loadHTML() {
+	if os := runtime.GOOS; os == "linux" {
+		cmd := exec.Command("xdg-open", "./../frontend_src/main.html")
 		if err := cmd.Run(); err != nil {
-			log.Error(err)
+			log.Fatal(err)
+		} else {
+			log.Info("Opening main.html")
+		}
+	} else if os == "windows" {
+		cmd := exec.Command("cmd", "/C", "start", "chrome", "main.html")
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		} else {
+			log.Info("Opening main.html")
 		}
 	} else {
 		log.Fatal("Unsupported Platform, aborting...")
 	}
 
-	log.Info("main.html has been opened")
 }
 
-type trxnHistory struct {
-	gorm.Model
-	pdfBlob    []byte
-	pdfHash    string
-	officeBlob []byte
-	officeHash string
-}
-
-func loadDB() *gorm.DB {
-	log.Info("connecting to database...")
-	db, err := gorm.Open(sqlite.Open("main.db"), &gorm.Config{})
-	if err != nil {
-		log.Fatal("database connection failed")
-	}
-	err = db.AutoMigrate(&trxnHistory{})
-	if err != nil {
-		log.Fatal("db schema migration failed")
-	}
-	log.Info("database connected, preparing server...")
-	return db
-}
-
-func loadRouter(db *gorm.DB) (*multipart.FileHeader, string, *gorm.DB, string) {
+func loadRouter(db *gorm.DB) {
 	router := gin.Default()
-	var emailID, fileExtension string
-	var file *multipart.FileHeader
+
 	router.POST("/upload", func(c *gin.Context) {
-		emailID = c.PostForm("mailID")
-		file, _ = c.FormFile("uploadedFile")
-		fileExtension = filepath.Ext(file.Filename)
+		emailID := c.PostForm("mailID")
+		log.Info("Received Form Value for email: " + emailID)
+		file, err := c.FormFile("uploadedFile")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File upload failed"})
+			log.Fatal("File upload failed")
+			log.Fatal(err)
+		} else {
+			log.Info("Uploaded File received")
+		}
+		fileExtension := filepath.Ext(file.Filename)
+		c.JSON(http.StatusOK, gin.H{"message": "File uploaded and processing started"})
+		pipeline(file, emailID, db, fileExtension)
 	})
 
-	return file, emailID, db, fileExtension
+	if err := router.Run(":8080"); err != nil {
+		log.Fatal("Couldn't spin router on port 8080")
+	} else {
+		log.Info("Router listening on port 8080")
+	}
 }
 
 func pipeline(file *multipart.FileHeader, emailID string, db *gorm.DB, fileExtension string) {
 	uploadedFile, _ := file.Open()
 	defer uploadedFile.Close()
 
-	localFile, _ := os.Create("./tmp." + fileExtension)
+	localFile, _ := os.Create("./tmp" + fileExtension)
 	defer localFile.Close()
 
-	io.Copy(localFile, uploadedFile)
-	hashOfLocalFile, _ := computeSHA256Hash("./tmp" + fileExtension)
-
-	var trxn trxnHistory
-
-	// Determine the field to check based on fileExtension
-	fieldToCheck := "pdfHash"
-	if fileExtension != ".pdf" {
-		fieldToCheck = "officeHash"
+	_, err := io.Copy(localFile, uploadedFile)
+	if err != nil {
+		log.Fatal("Couldn't reconstruct uploaded file locally")
 	}
-	var targetExtension string
-	switch fileExtension {
-	case ".pdf":
-		targetExtension = "docx"
-	default:
-		targetExtension = "pdf"
+
+	uploadedFileTypeHash := "Ohash"
+	if fileExtension == ".pdf" {
+		uploadedFileTypeHash = "Phash"
 	}
+
+	targetExtension := ".pdf"
+	if fileExtension == ".pdf" {
+		targetExtension = ".docx"
+	}
+
 	// Query the database to check if the hash exists
-	result := db.Where(fieldToCheck+" = ?", hashOfLocalFile).First(&trxn)
-	if result.Error == nil {
-		// Hash exists in the database
+	hashOfUnconvertedFile := computeSHA256Hash("./tmp" + fileExtension)
+	var trxn Cache
+	result := db.Where(uploadedFileTypeHash+" = ?", hashOfUnconvertedFile).First(&trxn)
 
-		blob := trxn.pdfBlob // Assuming pdfBlob is the default blob to return
-		if fileExtension != ".pdf" {
-			blob = trxn.officeBlob
+	if result.Error == nil { // Hash exists in the database
+		convertedFileblob := trxn.Pblob
+		if fileExtension == ".pdf" {
+			convertedFileblob = trxn.Oblob
 		}
-		convertedLocalFile, _ := os.Create("./tmp" + targetExtension)
-		defer convertedLocalFile.Close()
-		_, err := convertedLocalFile.Write(blob)
+
+		convertedLocalFile, err := os.Create("./tmp" + targetExtension)
 		if err != nil {
-			log.Error(err)
-			return
+			log.Fatal("Couldn't create an empty local file")
 		}
+		defer convertedLocalFile.Close()
+
+		_, err = convertedLocalFile.Write(convertedFileblob)
+		if err != nil {
+			log.Fatal("Couldn't build local file from cached blob in db")
+		}
+
 		mailToUser(emailID, "./tmp"+targetExtension, targetExtension)
 	} else if result.Error == gorm.ErrRecordNotFound {
-		// Define the command and its arguments
-		cmd := exec.Command("cloudconvert", "convert", "-f", targetExtension, "tmp"+fileExtension)
-
-		// Set up environment variables if necessary
+		cmd := exec.Command("cloudconvert", "convert", "-f", targetExtension[1:], "tmp"+fileExtension)
 		cmd.Env = append(os.Environ(), "CLOUDCONVERT_API_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZWMxYjQ4Mjg4OWY5YWFmZGNkNjYyMTkzN2RlNzg0MzhmNzRhYTUwYzVkMDcxODZkYjgzNDU5OTc4MmE2ZTA3NDQxMWQ5OWE1MTkwODA5NWEiLCJpYXQiOjE2OTc3NzAzNDYuNTEwOTY5LCJuYmYiOjE2OTc3NzAzNDYuNTEwOTcsImV4cCI6NDg1MzQ0Mzk0Ni41MDQ2NDgsInN1YiI6IjY1NzMwNzE3Iiwic2NvcGVzIjpbInByZXNldC53cml0ZSIsInByZXNldC5yZWFkIiwid2ViaG9vay53cml0ZSIsIndlYmhvb2sucmVhZCIsInRhc2sud3JpdGUiLCJ0YXNrLnJlYWQiLCJ1c2VyLndyaXRlIiwidXNlci5yZWFkIl19.Sv_bG0P8H3KX5zvxGaFXfUvHUJQwQSZtSk2INM2omZzfZN_AK-pQ0_ThooN6GkWhb2LZHtXTcj8rKGWt7pb2uQf2uOFYkd3H2k89eQ-70RkIVL2brXtrmd_VAniQ-TE65UNe4xj59CMB1OUaVLMPgVbJQBA7Mb26jQPrEJKmsOHbtfd6avlU4vg5DNwlbbOHQFOhoQ9ke3jWJwn-OjbrfpjskyCR3lR0PZKstPAuEy9JnM0rkTSWZ8dxmW4r1_5Qf1tMnd-6VgH3z7dyT3iAtC3D88IrrpP_Mdo_mR0UYtdUsWS6EFjiqO58-uTI90Lojn9Q-ke7enx5zXSm1DOShk5r8A1kBu9cSulnaGyXiwVWVYRRwOdy4leQHY9735XFzGuqi02DxUvP-dglWwdlFbj3qQm8WgCOSDHgy5TwYfEIjamNqO-Yt5jgQzQcD-WA2NLrk6t7z_9VeaI5y7KTgwAzFGQXzcEdX7Dc0q_Z3sye7HBy1Ppbei0xywg2gUp4aaYhUie1Oa5wkLaLSIdLWoyZjKyum-pbjCdqJyfCbi3dcmfy571b2Pqxy3209-LHeb-bAaB3zQCNkja10eTi9wKnXbfAxfvGaeVluqkJo5J7g0YnaCMdWgqLRanPPiD5WSODhU8fLHJWNnctIkW46sGJ2JBTUlyA16ZLcrVfGHw")
-
-		// Set the standard output and error to os.Stdout and os.Stderr to see the command output
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-
-		// Execute the command
-		err := cmd.Run()
+		err = cmd.Run()
 		if err != nil {
-			fmt.Println("Error:", err)
+			log.Fatal("Couldn't run cloudconvert's npm tool")
 		}
 
 		// file has been converted locally and needs to be cached before it can be mailed
-		hashOfConvertedFile, _ := computeSHA256Hash("./tmp" + targetExtension)
-		targetBlob, err := os.ReadFile("./tmp" + targetExtension)
+		hashOfConvertedFile := computeSHA256Hash("./tmp" + targetExtension)
+		convertedFileBlob, err := os.ReadFile("./tmp" + targetExtension)
 		if err != nil {
-			fmt.Printf("Error reading file: %v\n", err)
-			return
+			log.Fatal("Error reading file while finding hash")
 		}
 
-		var newRecord trxnHistory
+		var newRecord Cache
 		uncovertedFileBlob, _ := os.ReadFile("./tmp" + fileExtension)
 		if targetExtension == ".pdf" {
-			newRecord.pdfBlob = targetBlob
-			newRecord.pdfHash = hashOfConvertedFile
-			newRecord.officeBlob = uncovertedFileBlob
-			newRecord.officeHash = hashOfLocalFile
+			newRecord.Pblob = convertedFileBlob
+			newRecord.Phash = hashOfConvertedFile
+			newRecord.Oblob = uncovertedFileBlob
+			newRecord.Ohash = hashOfUnconvertedFile
 		} else {
-			newRecord.officeBlob = targetBlob
-			newRecord.officeHash = hashOfConvertedFile
-			newRecord.pdfBlob = uncovertedFileBlob
-			newRecord.pdfHash = hashOfLocalFile
+			newRecord.Pblob = uncovertedFileBlob
+			newRecord.Phash = hashOfUnconvertedFile
+			newRecord.Oblob = convertedFileBlob
+			newRecord.Ohash = hashOfConvertedFile
 		}
-		result := db.Create(&newRecord)
+		result = db.Create(&newRecord)
 		if result.Error != nil {
-			panic("Failed to insert the record")
+			log.Fatal("Failed to insert the record")
 		}
-		convertedLocalFile, _ := os.Create("./tmp" + targetExtension)
-		defer convertedLocalFile.Close()
+
 		mailToUser(emailID, "./tmp"+targetExtension, targetExtension)
+		os.Remove("./tmp" + targetExtension)
 	} else {
-		log.Error(result.Error)
+		log.Fatal("Error Reading cached entries from db")
 	}
 
-	os.Remove("./tmp." + fileExtension)
+	os.Remove("./tmp" + fileExtension)
 }
-func computeSHA256Hash(filePath string) (string, error) {
-	file, _ := os.Open(filePath)
+func computeSHA256Hash(filePath string) string {
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Fatal("Couldn't open " + filePath)
+	}
 	defer file.Close()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
+		log.Fatal("Opened but couldn't hash")
 	}
 
-	// Convert the hash to a hexadecimal string
 	hashSum := hash.Sum(nil)
 	hashString := hex.EncodeToString(hashSum)
-
-	return hashString, nil
+	return hashString
 }
 func mailToUser(emailID string, convertedFileName string, fileExtension string) {
 	mailjetClient := mailjet.NewMailjetClient(os.Getenv("MJ_APIKEY_PUBLIC"), os.Getenv("MJ_APIKEY_PRIVATE"))
 	content, err := os.ReadFile(convertedFileName)
 	if err != nil {
-		log.Error(err)
+		log.Fatal("Couldn't attach " + convertedFileName + " to mail, error in reading file")
 	}
+
 	contentTypeOfFile := "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 	if fileExtension == ".pdf" {
 		contentTypeOfFile = "application/pdf"
@@ -213,16 +236,15 @@ func mailToUser(emailID string, convertedFileName string, fileExtension string) 
 			},
 		},
 	}
+
 	messages := mailjet.MessagesV31{Info: messagesInfo}
 	res, err := mailjetClient.SendMailV31(&messages)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Couldn't send mail")
 	}
 	fmt.Printf("Data: %+v\n", res)
 }
 
 func main() {
-	db := loadDB()
-	loadHTML()
-	pipeline(loadRouter(db))
+	loadRouter(connectDB())
 }

@@ -1,6 +1,6 @@
-module backend
+module main
 
-go 1.21.0
+go 1.21.3
 
 require (
 	github.com/charmbracelet/log v0.2.5
@@ -29,8 +29,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/mailjet/mailjet-apiv3-go/v3 v3.2.0 // indirect
-	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect

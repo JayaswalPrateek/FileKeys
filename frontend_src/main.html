@@ -15,7 +15,7 @@
         <span style="font-size: 150px;">📜 </span>
     </h1>
 
-    <form action="" method="post" style="padding: 12px 20px; margin: 8px 0; box-sizing: border-box;" id="f">
+    <form action="http://localhost:8080/upload" method="post" enctype="multipart/form-data" style="padding: 12px 20px; margin: 8px 0; box-sizing: border-box;" id="f">
         <table align="center" cellpadding="10" style="font-family: Dosis; font-size:larger;">
             <tr>
                 <td>Enter Email</td>
@@ -47,8 +47,6 @@
             status.textContent = "";
         });
         document.getElementById("f").onsubmit = function (event) {
-            // Prevent the default form submission
-            event.preventDefault();
             sub();
         };
         function sub() {

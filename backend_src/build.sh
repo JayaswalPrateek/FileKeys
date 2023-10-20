@@ -9,5 +9,5 @@ echo "Linting" &&
     echo -e "DONE\n\n"
 
 echo "Generating executable" &&
-    go build -ldflags="-s -w" -o ./../frontend_src/backendBinary main.go &&
+    go build -ldflags="-s -w" -o backendBinary main.go &&
     echo -e "DONE"
