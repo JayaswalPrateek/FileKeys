@@ -44,33 +44,47 @@ func connectDB() *gorm.DB {
 	} else {
 		log.Info("db schema migration successful")
 	}
-	loadHTML()
+	openBrowser()
 	return db
 }
 
-func loadHTML() {
-	if os := runtime.GOOS; os == "linux" {
-		cmd := exec.Command("xdg-open", "./../frontend_src/main.html")
-		if err := cmd.Run(); err != nil {
-			log.Fatal(err)
-		} else {
-			log.Info("Opening main.html")
-		}
-	} else if os == "windows" {
-		cmd := exec.Command("cmd", "/C", "start", "chrome", "main.html")
-		if err := cmd.Run(); err != nil {
-			log.Fatal(err)
-		} else {
-			log.Info("Opening main.html")
-		}
+func openBrowser() {
+	var cmd *exec.Cmd
+
+	if runtime.GOOS == "linux" {
+		cmd = exec.Command("xdg-open", "http://localhost:8080")
+	} else if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/C", "start", "http://localhost:8080")
 	} else {
-		log.Fatal("Unsupported Platform, aborting...")
+		log.Error("Unsupported Platform, cannot open the browser")
 	}
 
+	if err := cmd.Start(); err != nil {
+		log.Fatal("Couldn't open localhost url")
+	}
 }
 
+func Asset(filename string) ([]byte, error) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return content, nil
+}
 func loadRouter(db *gorm.DB) {
 	router := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+
+	router.GET("/", func(c *gin.Context) {
+		htmlContent, err := Asset("./../frontend_src/main.html")
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "HTML file not found"})
+			log.Fatal("Couldn't serve html page on /")
+		}
+
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, string(htmlContent))
+	})
 
 	router.POST("/upload", func(c *gin.Context) {
 		emailID := c.PostForm("mailID")
@@ -200,7 +214,7 @@ func computeSHA256Hash(filePath string) string {
 	return hashString
 }
 func mailToUser(emailID string, convertedFileName string, fileExtension string) {
-	mailjetClient := mailjet.NewMailjetClient(os.Getenv("MJ_APIKEY_PUBLIC"), os.Getenv("MJ_APIKEY_PRIVATE"))
+	mailjetClient := mailjet.NewMailjetClient("284165cb51dbff7d2706b0eb21167f22", "01abfa596a09fcdef91436c8faa9f8d6")
 	content, err := os.ReadFile(convertedFileName)
 	if err != nil {
 		log.Fatal("Couldn't attach " + convertedFileName + " to mail, error in reading file")
