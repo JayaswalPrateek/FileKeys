@@ -77,7 +77,7 @@ func loadRouter(db *gorm.DB) {
 		c.String(http.StatusOK, string(htmlContent))
 	})
 
-	router.POST("/upload", func(c *gin.Context) {
+	router.POST("/", func(c *gin.Context) {
 		emailID := c.PostForm("mailID")
 		// log.Info("Received Form Value for email: " + emailID)
 		file, err := c.FormFile("uploadedFile")
