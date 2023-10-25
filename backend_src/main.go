@@ -64,8 +64,8 @@ func openBrowser() {
 }
 
 func loadRouter(db *gorm.DB) {
-	router := gin.Default()
 	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
 
 	router.GET("/", func(c *gin.Context) {
 		htmlContent, err := byteify("./../frontend_src/main.html")
@@ -76,7 +76,6 @@ func loadRouter(db *gorm.DB) {
 		c.Header("Content-Type", "text/html")
 		c.String(http.StatusOK, string(htmlContent))
 	})
-
 	router.POST("/", func(c *gin.Context) {
 		emailID := c.PostForm("mailID")
 		// log.Info("Received Form Value for email: " + emailID)
