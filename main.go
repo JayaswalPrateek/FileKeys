@@ -242,7 +242,7 @@ func mailToUser(emailID string, convertedFileName string, fileExtension string) 
 
 	base64ContentOfFile := base64.StdEncoding.EncodeToString(content)
 	messagesInfo := []mailjet.InfoMessagesV31{
-		mailjet.InfoMessagesV31{
+		{
 			From: &mailjet.RecipientV31{
 				Email: "filekeysteam@gmail.com",
 				Name:  "Prateek",
