@@ -10,5 +10,5 @@ echo "Linting" &&
 
 echo "Generating executable" &&
     go build -ldflags="-s -w" -o backendBinary_LINUX main.go &&
-    GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o backendBinary_WINDOWS.exe main.go &&
+    GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o backendBinary_WINDOWS.exe main.go &&
     echo -e "DONE"
