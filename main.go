@@ -60,6 +60,8 @@ func openBrowser() {
 
 	if err := cmd.Start(); err != nil {
 		log.Fatal("Couldn't open localhost url on port 8080")
+	} else {
+		log.Info("Opened http://localhost:8080 in browser")
 	}
 }
 
@@ -72,13 +74,14 @@ func loadRouter(db *gorm.DB) {
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "HTML file not found"})
 			log.Fatal("Couldn't serve html page on /")
+		} else {
+			log.Info("sent main.html to browser after GET request")
 		}
 		c.Header("Content-Type", "text/html")
 		c.String(http.StatusOK, string(htmlContent))
 	})
 	router.POST("/", func(c *gin.Context) {
 		emailID := c.PostForm("mailID")
-		// log.Info("Received Form Value for email: " + emailID)
 		file, err := c.FormFile("uploadedFile")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "File upload failed"})
@@ -106,9 +109,15 @@ func byteify(filename string) ([]byte, error) {
 }
 
 func pipeline(file *multipart.FileHeader, emailID string, db *gorm.DB, fileExtension string) {
-	uploadedFile, _ := file.Open()
+	uploadedFile, err := file.Open()
+	if err != nil {
+		log.Fatal("couldn't open uploaded file")
+	}
 	defer uploadedFile.Close()
-	unconvertedFile, _ := os.Create("FileKeys" + fileExtension)
+	unconvertedFile, err := os.Create("FileKeys" + fileExtension)
+	if err != nil {
+		log.Fatal("couldn't create an empty file")
+	}
 	defer unconvertedFile.Close()
 	if _, err := io.Copy(unconvertedFile, uploadedFile); err != nil {
 		log.Fatal("Couldn't reconstruct uploaded file locally")
@@ -132,30 +141,37 @@ func pipeline(file *multipart.FileHeader, emailID string, db *gorm.DB, fileExten
 	result := db.Where(uploadedFileTypeHash+" = ?", hashOfUnconvertedFile).First(&trxn)
 
 	if result.Error == nil { // Hash exists in the database
+		log.Info("Found hash in cache, recovering blob...")
 		convertedFileblob := trxn.Pblob
 		if fileExtension == ".pdf" {
 			convertedFileblob = trxn.Oblob
 		}
-
+		log.Info("blob recovered from db, constructing converted file from cached blob...")
 		convertedLocalFile, err := os.Create(convertedFileName)
 		if err != nil {
-			log.Fatal("Couldn't create an empty local file")
+			log.Fatal("couldn't create an empty")
 		}
 		defer convertedLocalFile.Close()
 
 		if _, err = convertedLocalFile.Write(convertedFileblob); err != nil {
 			log.Fatal("Couldn't build local file from cached blob in db")
+		} else {
+			log.Info("local file built from cached blob!")
 		}
 		mailToUser(emailID, convertedFileName, targetExtension)
+		log.Info("mail sent, deleting local files...")
 		os.Remove(convertedFileName)
 	} else if result.Error == gorm.ErrRecordNotFound {
+		log.Info("hash not found in cache, converting and caching...")
 		cmd := exec.Command("cloudconvert", "convert", "-f", targetExtension[1:], unconvertedFileName)
 		cmd.Env = append(os.Environ(), "CLOUDCONVERT_API_KEY=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiZWMxYjQ4Mjg4OWY5YWFmZGNkNjYyMTkzN2RlNzg0MzhmNzRhYTUwYzVkMDcxODZkYjgzNDU5OTc4MmE2ZTA3NDQxMWQ5OWE1MTkwODA5NWEiLCJpYXQiOjE2OTc3NzAzNDYuNTEwOTY5LCJuYmYiOjE2OTc3NzAzNDYuNTEwOTcsImV4cCI6NDg1MzQ0Mzk0Ni41MDQ2NDgsInN1YiI6IjY1NzMwNzE3Iiwic2NvcGVzIjpbInByZXNldC53cml0ZSIsInByZXNldC5yZWFkIiwid2ViaG9vay53cml0ZSIsIndlYmhvb2sucmVhZCIsInRhc2sud3JpdGUiLCJ0YXNrLnJlYWQiLCJ1c2VyLndyaXRlIiwidXNlci5yZWFkIl19.Sv_bG0P8H3KX5zvxGaFXfUvHUJQwQSZtSk2INM2omZzfZN_AK-pQ0_ThooN6GkWhb2LZHtXTcj8rKGWt7pb2uQf2uOFYkd3H2k89eQ-70RkIVL2brXtrmd_VAniQ-TE65UNe4xj59CMB1OUaVLMPgVbJQBA7Mb26jQPrEJKmsOHbtfd6avlU4vg5DNwlbbOHQFOhoQ9ke3jWJwn-OjbrfpjskyCR3lR0PZKstPAuEy9JnM0rkTSWZ8dxmW4r1_5Qf1tMnd-6VgH3z7dyT3iAtC3D88IrrpP_Mdo_mR0UYtdUsWS6EFjiqO58-uTI90Lojn9Q-ke7enx5zXSm1DOShk5r8A1kBu9cSulnaGyXiwVWVYRRwOdy4leQHY9735XFzGuqi02DxUvP-dglWwdlFbj3qQm8WgCOSDHgy5TwYfEIjamNqO-Yt5jgQzQcD-WA2NLrk6t7z_9VeaI5y7KTgwAzFGQXzcEdX7Dc0q_Z3sye7HBy1Ppbei0xywg2gUp4aaYhUie1Oa5wkLaLSIdLWoyZjKyum-pbjCdqJyfCbi3dcmfy571b2Pqxy3209-LHeb-bAaB3zQCNkja10eTi9wKnXbfAxfvGaeVluqkJo5J7g0YnaCMdWgqLRanPPiD5WSODhU8fLHJWNnctIkW46sGJ2JBTUlyA16ZLcrVfGHw")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
 		if err != nil {
-			log.Fatal("Couldn't run cloudconvert's npm tool")
+			log.Fatal("Couldn't run cloudconvert's npm package")
+		} else {
+			log.Info("File converted using cloudconvert API")
 		}
 
 		// file has been converted locally and needs to be cached before it can be mailed
@@ -181,14 +197,15 @@ func pipeline(file *multipart.FileHeader, emailID string, db *gorm.DB, fileExten
 		result = db.Create(&newRecord)
 		if result.Error != nil {
 			log.Fatal("Failed to insert the record")
+		} else {
+			log.Info("file has been cached")
 		}
-
 		mailToUser(emailID, convertedFileName, targetExtension)
+		log.Info("mail sent, deleting local files...")
 		os.Remove(convertedFileName)
 	} else {
 		log.Fatal("Error Reading cached entries from db")
 	}
-
 	os.Remove(unconvertedFileName)
 }
 
@@ -201,7 +218,7 @@ func computeSHA256Hash(filePath string) string {
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		log.Fatal("Opened but couldn't hash the file")
+		log.Fatal("couldn't hash opened file")
 	}
 
 	hashSum := hash.Sum(nil)
@@ -214,6 +231,8 @@ func mailToUser(emailID string, convertedFileName string, fileExtension string) 
 	content, err := os.ReadFile(convertedFileName)
 	if err != nil {
 		log.Fatal("Couldn't attach " + convertedFileName + " to mail, error in reading file")
+	} else {
+		log.Info("converted file attached to mail request")
 	}
 
 	contentTypeOfFile := "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
