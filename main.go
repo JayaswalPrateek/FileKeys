@@ -68,7 +68,7 @@ func loadRouter(db *gorm.DB) {
 	router := gin.Default()
 
 	router.GET("/", func(c *gin.Context) {
-		htmlContent, err := byteify("main.html")
+		htmlContent, err := byteify("./main.html")
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "HTML file not found"})
 			log.Fatal("Couldn't serve html page on /")
