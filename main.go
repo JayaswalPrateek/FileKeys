@@ -95,6 +95,7 @@ func loadRouter(db *gorm.DB) {
 	})
 
 	if err := router.Run(":8080"); err != nil {
+		log.Info(err)
 		log.Fatal("Couldn't spin router on port 8080")
 	} else {
 		log.Info("Router listening on port 8080")
