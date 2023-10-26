@@ -51,17 +51,17 @@ func openBrowser() {
 	var cmd *exec.Cmd
 
 	if runtime.GOOS == "linux" {
-		cmd = exec.Command("xdg-open", "http://localhost:8080")
+		cmd = exec.Command("xdg-open", "http://localhost:8081")
 	} else if runtime.GOOS == "windows" {
-		cmd = exec.Command("cmd", "/C", "start", "http://localhost:8080")
+		cmd = exec.Command("cmd", "/C", "start", "http://localhost:8081")
 	} else {
 		log.Error("Unsupported Platform, cannot open the browser")
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Fatal("Couldn't open localhost url on port 8080")
+		log.Fatal("Couldn't open localhost url on port 8081")
 	} else {
-		log.Info("Opened http://localhost:8080 in browser")
+		log.Info("Opened http://localhost:8081 in browser")
 	}
 }
 
@@ -94,11 +94,11 @@ func loadRouter(db *gorm.DB) {
 		pipeline(file, emailID, db, fileExtension)
 	})
 
-	if err := router.Run(":8080"); err != nil {
+	if err := router.Run(":8081"); err != nil {
 		log.Info(err)
-		log.Fatal("Couldn't spin router on port 8080")
+		log.Fatal("Couldn't spin router on port 8081")
 	} else {
-		log.Info("Router listening on port 8080")
+		log.Info("Router listening on port 8081")
 	}
 }
 func byteify(filename string) ([]byte, error) {
