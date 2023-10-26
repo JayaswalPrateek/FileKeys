@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Dosis:wght@800&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
     <style>
         * {
             box-sizing: border-box;
@@ -16,16 +17,12 @@
         body {
             margin: 0;
             overflow: hidden;
-            padding: 16px;
-            zoom: 100%;
         }
 
         .header-left {
             float: left;
-        }
-
-        .logo {
-            margin-right: 16px;
+            zoom: 200%;
+            padding: 0px 0px 0px 13px;
         }
 
         .branding {
@@ -33,12 +30,9 @@
             font-size: 32px;
         }
 
-        .header-right button {
-            margin-right: 16px;
-        }
-
         .header-right {
             float: right;
+            zoom: 200%;
         }
 
         .container {
@@ -56,7 +50,7 @@
         }
 
         .textInput {
-            text-align: center;
+            text-align-last: center;
         }
 
         .fileInput,
@@ -74,20 +68,20 @@
             border: 0px;
             font-family: Dosis;
             font-size: larger;
+            zoom: 200%;
         }
 
         th,
         td {
-            text-align: center;
+            text-align-last: center;
         }
 
-        /* New styles for the flex container */
         .flex-container {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            
+
         }
     </style>
     <script>
@@ -146,23 +140,23 @@
             document.getElementById("theme").addEventListener("click", function () {
                 IsLight = !IsLight;
                 if (!IsLight) {
-                    document.getElementById("theme").innerHTML = '<i class="fa-solid fa-sun fa-2xl" style="color: #ffffff;"></i>';
+                    document.getElementById("theme").innerHTML = '<i class="fa-solid fa-lightbulb fa-2xl" style="color: #ffffff;"></i>';
                     document.body.className = "bg-sky-950";
                     document.getElementById("github").innerHTML = '<i class="fa-brands fa-github fa-2xl" style="color: #ffffff;"></i>';
                     if (document.getElementById("buttonLogo")) {
                         document.getElementById("gmail").innerHTML = '<i id="buttonLogo" class="fa-brands fa-google fa-fade fa-2xl" style="color: #ffffff;"></i>';
                     }
-                    document.getElementById("header-left").innerHTML = '<button style="color: #ffffff;"><i class="logo fa-solid fa-inbox fa-2xl"></i><span class="branding">FileKeys</span></button>'
+                    document.getElementById("header-left").innerHTML = '<span style="color: #ffffff;" class="branding">FileKeys</span>'
                     document.getElementById("enterEmail").className = 'text-white';
                     document.getElementById("selectFile").className = 'text-white';
                 } else {
-                    document.getElementById("theme").innerHTML = '<i class="fa-solid fa-moon fa-2xl";"></i>';
+                    document.getElementById("theme").innerHTML = '<i class="fa-solid fa-lightbulb fa-2xl";"></i>';
                     document.body.className = "bg-sky-200";
                     document.getElementById("github").innerHTML = '<i class="fa-brands fa-github fa-2xl";"></i>';
                     if (document.getElementById("buttonLogo")) {
                         document.getElementById("gmail").innerHTML = '<i id="buttonLogo" class="fa-brands fa-google fa-fade fa-2xl"></i>';
                     }
-                    document.getElementById("header-left").innerHTML = '<button><i class="logo fa-solid fa-inbox fa-2xl"></i><span class="branding">FileKeys</span></button>'
+                    document.getElementById("header-left").innerHTML = '<span class="branding">FileKeys</span>'
                     document.getElementById("enterEmail").className = '';
                     document.getElementById("selectFile").className = '';
                 }
@@ -173,17 +167,16 @@
 
 <body class="bg-sky-200">
     <div id="header-left" class="header-left">
-        <button><i class="logo fa-solid fa-inbox fa-2xl"></i><span class="branding">FileKeys</span></button>
+        <span class="branding">FileKeys</span>
     </div>
     <div class="header-right">
         <button id="gmail" class="py-4 px-4 rounded-full" disabled></button>
         <button id="github" class="py-4 px-4 rounded-full"><i class="fa-brands fa-github fa-2xl"></i></button>
-        <button id="theme" class="py-4 px-4 rounded-full"><i class="themeLogo fa-sharp fa-solid fa-moon fa-2xl"></i></button>
+        <button id="theme" class="py-4 px-4 rounded-full"><i class="themeLogo fa-sharp fa-solid fa-lightbulb fa-2xl"></i></button>
     </div>
 
     <iframe name="hiddenFrame" style="display: none;"></iframe>
 
-    <!-- Add a wrapper div with class "flex-container" -->
     <div class="flex-container">
         <div class="container">
             <form class="mainForm" id="f" action="http://localhost:8080/" method="post" target="hiddenFrame" enctype="multipart/form-data">
