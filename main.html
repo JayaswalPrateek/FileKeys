@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>File Keys</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://kit.fontawesome.com/d85fe996f7.js" crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Dosis:wght@800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            padding: 16px;
+            zoom: 100%;
+        }
+
+        .header-left {
+            float: left;
+        }
+
+        .logo {
+            margin-right: 16px;
+        }
+
+        .branding {
+            font-family: Dosis;
+            font-size: 32px;
+        }
+
+        .header-right button {
+            margin-right: 16px;
+        }
+
+        .header-right {
+            float: right;
+        }
+
+        .container {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            margin: 0 auto;
+        }
+
+        .mainForm {
+            box-sizing: border-box;
+            margin: 8px 0;
+            padding: 12px 20px;
+        }
+
+        .textInput {
+            text-align: center;
+        }
+
+        .fileInput,
+        .convertButton,
+        .clearButton {
+            font-family: Dosis;
+        }
+
+        .formMessage {
+            color: #0284c7;
+        }
+
+        table {
+            border-collapse: collapse;
+            border: 0px;
+            font-family: Dosis;
+            font-size: larger;
+        }
+
+        th,
+        td {
+            text-align: center;
+        }
+
+        /* New styles for the flex container */
+        .flex-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            
+        }
+    </style>
+    <script>
+        let IsLight = true;
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById("clearButton").addEventListener("click", function () {
+                document.getElementById("convertButton").removeAttribute('disabled');
+                document.getElementById("convertButton").className = "convertButton bg-sky-400 hover:bg-sky-500 text-black font-bold py-2 px-4 rounded-full";
+                document.getElementById("formMessage").textContent = "";
+                document.getElementById('gmail').setAttribute('disabled', 'true');
+                document.getElementById('gmail').removeChild(document.getElementById('buttonLogo'));
+                document.querySelector('input[name="mailID"]').value = '';
+                document.querySelector('input[name="uploadedFile"]').value = '';
+            });
+            document.getElementById("github").addEventListener("click", function () {
+                window.open("https://github.com/JayaswalPrateek/FileKeys", "_blank");
+            });
+            document.getElementById("f").onsubmit = function () {
+                if (navigator.onLine) {
+                    sub();
+                    document.getElementById("convertButton").setAttribute('disabled', 'true');
+                    document.getElementById("convertButton").className = "convertButton bg-neutral-700 text-white font-bold py-2 px-4 rounded-full";
+                } else {
+                    const status = document.getElementById("formMessage");
+                    status.style.color = "red";
+                    status.textContent = "No Internet!";
+                }
+            };
+            function sub() {
+                const fileInput = document.querySelector('input[name="uploadedFile"]');
+                const file = fileInput.files[0];
+                const fileName = file.name;
+                var id = document.querySelector('input[name="mailID"]');
+                var status = document.getElementById("formMessage");
+                if (fileName.endsWith('.pdf')) {
+                    status.textContent = "Sending Office File to " + id.value;
+                } else {
+                    status.textContent = "Sending PDF File to " + id.value;
+                }
+                if (id.value.endsWith('@gmail.com')) {
+                    var disabledButton = document.getElementById('gmail');
+                    disabledButton.removeAttribute('disabled');
+                    var iconElement = document.createElement("i");
+                    iconElement.id = "buttonLogo";
+                    iconElement.className = "fa-brands fa-google fa-fade fa-2xl";
+                    if (!IsLight) {
+                        iconElement.style.color = "#ffffff"
+                    }
+                    disabledButton.appendChild(iconElement);
+                    document.getElementById("gmail").addEventListener("click", function () {
+                        window.open("https://mail.google.com", "_blank");
+                    });
+                }
+
+            }
+            document.getElementById("theme").addEventListener("click", function () {
+                IsLight = !IsLight;
+                if (!IsLight) {
+                    document.getElementById("theme").innerHTML = '<i class="fa-solid fa-sun fa-2xl" style="color: #ffffff;"></i>';
+                    document.body.className = "bg-sky-950";
+                    document.getElementById("github").innerHTML = '<i class="fa-brands fa-github fa-2xl" style="color: #ffffff;"></i>';
+                    if (document.getElementById("buttonLogo")) {
+                        document.getElementById("gmail").innerHTML = '<i id="buttonLogo" class="fa-brands fa-google fa-fade fa-2xl" style="color: #ffffff;"></i>';
+                    }
+                    document.getElementById("header-left").innerHTML = '<button style="color: #ffffff;"><i class="logo fa-solid fa-inbox fa-2xl"></i><span class="branding">FileKeys</span></button>'
+                    document.getElementById("enterEmail").className = 'text-white';
+                    document.getElementById("selectFile").className = 'text-white';
+                } else {
+                    document.getElementById("theme").innerHTML = '<i class="fa-solid fa-moon fa-2xl";"></i>';
+                    document.body.className = "bg-sky-200";
+                    document.getElementById("github").innerHTML = '<i class="fa-brands fa-github fa-2xl";"></i>';
+                    if (document.getElementById("buttonLogo")) {
+                        document.getElementById("gmail").innerHTML = '<i id="buttonLogo" class="fa-brands fa-google fa-fade fa-2xl"></i>';
+                    }
+                    document.getElementById("header-left").innerHTML = '<button><i class="logo fa-solid fa-inbox fa-2xl"></i><span class="branding">FileKeys</span></button>'
+                    document.getElementById("enterEmail").className = '';
+                    document.getElementById("selectFile").className = '';
+                }
+            });
+        });
+    </script>
+</head>
+
+<body class="bg-sky-200">
+    <div id="header-left" class="header-left">
+        <button><i class="logo fa-solid fa-inbox fa-2xl"></i><span class="branding">FileKeys</span></button>
+    </div>
+    <div class="header-right">
+        <button id="gmail" class="py-4 px-4 rounded-full" disabled></button>
+        <button id="github" class="py-4 px-4 rounded-full"><i class="fa-brands fa-github fa-2xl"></i></button>
+        <button id="theme" class="py-4 px-4 rounded-full"><i class="themeLogo fa-sharp fa-solid fa-moon fa-2xl"></i></button>
+    </div>
+
+    <iframe name="hiddenFrame" style="display: none;"></iframe>
+
+    <!-- Add a wrapper div with class "flex-container" -->
+    <div class="flex-container">
+        <div class="container">
+            <form class="mainForm" id="f" action="http://localhost:8080/" method="post" target="hiddenFrame" enctype="multipart/form-data">
+                <table cellpadding="16">
+                    <tr>
+                        <td id="enterEmail">Enter Email</td>
+                        <td>
+                            <input type="email" name="mailID" required placeholder="abc@xyz.com" class="textInput bg-sky-400 hover:bg-sky-500 text-black font-bold placeholder:text-gray-500 py-2 px-4 rounded-full">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td id="selectFile">Select File</td>
+                        <td>
+                            <input type="file" name="uploadedFile" required accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" class="fileInput block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-sky-400 hover:file:bg-sky-500" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><input id="convertButton" class="convertButton bg-sky-400 hover:bg-sky-500 text-black font-bold py-2 px-4 rounded-full" type="submit" value="Convert"></td>
+                        <td><input id="clearButton" class="clearButton bg-sky-400 hover:bg-sky-500 text-black font-bold py-2 px-4 rounded-full" type="reset" value="Clear"></td>
+                    </tr>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" class="formMessage" id="formMessage"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>
