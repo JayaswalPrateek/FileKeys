@@ -246,7 +246,7 @@ func mailToUser(emailID string, convertedFileName string, fileExtension string) 
 		{
 			From: &mailjet.RecipientV31{
 				Email: "filekeysteam@gmail.com",
-				Name:  "Prateek",
+				Name:  "Team FileKeys",
 			},
 			To: &mailjet.RecipientsV31{
 				mailjet.RecipientV31{
