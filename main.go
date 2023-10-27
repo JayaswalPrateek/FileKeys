@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"embed"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -65,12 +66,16 @@ func openBrowser() {
 	}
 }
 
+//go:embed main.html
+var content embed.FS
+
 func loadRouter(db *gorm.DB) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
 	router.GET("/", func(c *gin.Context) {
-		htmlContent, err := byteify("./main.html")
+
+		htmlContent, err := content.ReadFile("main.html")
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "HTML file not found"})
 			log.Fatal("Couldn't serve html page on /")
@@ -100,13 +105,6 @@ func loadRouter(db *gorm.DB) {
 	} else {
 		log.Info("Router listening on port 8081")
 	}
-}
-func byteify(filename string) ([]byte, error) {
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return content, nil
 }
 
 func pipeline(file *multipart.FileHeader, emailID string, db *gorm.DB, fileExtension string) {

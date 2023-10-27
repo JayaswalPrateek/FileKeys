@@ -9,6 +9,7 @@ echo "Linting" &&
     echo -e "DONE\n"
 
 echo "Generating executable" &&
+    go generate
     go build -ldflags="-s -w" -o FileKeys_linux64 main.go &&
     GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -ldflags="-s -w" -o FileKeys64.exe main.go
     echo -e "DONE"
